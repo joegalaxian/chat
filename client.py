@@ -122,6 +122,12 @@ def loop(s):
 				# ()
 				# Message from the server -> receive, print
 				msg = s.recv(1024)
+				
+				#server_down()
+				if not msg:
+					goodbye(s, "\n[!] "+color.FAIL+"Disconnected from server."+color.ENDC)
+
+				#print_message()
 				sys.stdout.write('\r'+msg+'\n')
 				sys.stdout.flush()
 

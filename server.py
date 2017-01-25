@@ -78,30 +78,36 @@ EXIT_CODE = '/quitting'
 def loop(s):
 	hosts = []
 	SOCKET_LIST = [s]
+
 	while True:
-		#select until socket modified
+
+		#socket_select()
 		ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [])
 		
 		# ready_to_read()
 		for sock in ready_to_read:
+			
+			# new_connection()
 			if sock == s:
-				# new_connection()
 				sockfd, addr = s.accept()
 				SOCKET_LIST.append(sockfd)
 				print "[+]", color.WARNING + "Connection", addr, color.ENDC
 				#print '[>] DEBUG SOCKET_LIST', SOCKET_LIST
+			
+			#new_message()
 			else:
-				# new_message()
 				# Client message -> receive and broadcast (to all except server socket and sender socket).
 				msg = sock.recv(1024)
 				if msg != '':
+					
+					# disconnection()
 					if msg == EXIT_CODE:
-						# disconnection()
-						print "[-]", color.WARNING + "Disconnection." + color.ENDC
+						print "[-]", color.WARNING+"Disconnection."+color.ENDC
 						SOCKET_LIST.remove(sock)
 						continue
+					
+					# broadcast()
 					else:
-						# broadcast()
 						for host in SOCKET_LIST:
 							if host != sock and host != s:
 								#print "[>] DEBUG Sending '" +msg+ "' to ", host

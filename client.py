@@ -1,12 +1,13 @@
 # http://www.bogotobogo.com/python/python_network_programming_server_client.php
 
 # echo_client.py
-import socket
 import color
 import os
+import sys
+import socket
+import select
 
-
-KNOWN_HOSTS = [('atuin.optus.com.au',4747), ('10.123.0.94',4747), ('192.168.1.7',4747), ('192.168.1.11',4747), ('192.168.0.23',4747), ('192.168.0.26',4747), ('127.0.0.1',4747), ('localhost',4747)]
+KNOWN_HOSTS = [('atuin.optus.com.au',4747), ('192.168.1.7',4747), ('192.168.1.11',4747), ('192.168.0.23',4747), ('192.168.0.26',4747), ('127.0.0.1',4747), ('localhost',4747)]
 
 
 """"
@@ -47,39 +48,124 @@ def enter_host_port():
 
 
 # Connects to the server
-def connect(host, port):
+def connect2(host, port):
 	print "[*] Connecting to...", (host, port)
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect((host, port))
-	print "[!] Connected to...", (host, port)
+	print "[!]", color.OKGREEN + "Connected to...", (host, port), color.ENDC
 	return s
 
-def connect():
+
+# manual_connect
+def manual_connect():
+	host, port = enter_host_port()
+	return connect2(host, port)
+
+
+# auto_connect
+def auto_connect(host=None, port=None):
+#if host == None and port == None:
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	#s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	exception_stack = []
 	print "[*] Connecting..."
 	for h in KNOWN_HOSTS:
 		try:
-			print "[*] Connecting...", h
-			#h = ('127.0.0.1', 4747)
+			# print "[i] DEBUG Connecting...", h
 			s.connect(h)
 			print "[!]", color.OKGREEN + "Connected", h, color.ENDC
 			return s
 		except Exception as e:
-			print "[!]", color.FAIL + str(e), h, color.ENDC
+			# print "[>] DEBUG Error:", str(e)
+			exception_stack.append("[!] " + color.FAIL + str(e) + " " + str(h) + color.ENDC)
 			pass
-	print "[!]", color.FAIL + "Couldn't connect with any known host.", color.ENDC
+	
+	# Print exception stack and error.
+	for e in exception_stack: print e
+	print "[!]", color.FAIL + "Couldn't connect to any known host.", color.ENDC
+
+	# manual_connect():
+	return manual_connect()
+
+#else: return connect(host, port)
+
+
+EXIT_CODE = '/quitting'
+# Terminates program after closing socket and optional printing.
+def goodbye(sock = None, msg = None):
+	if sock:
+		sock.send(EXIT_CODE)
+		sock.close()
+	if msg: print msg
 	quit()
+
+
+# loop
+def loop(s):
+	SOCKET_LIST = [s, sys.stdin]
+	name = raw_input("[*] Name: ")
+	
+	#prompt()
+	sys.stdout.write(name + "> ")
+	sys.stdout.flush()
+
+	while True:
+
+		#socket_select()
+		ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [])
+
+		#ready_to_read()
+		for sock in ready_to_read:
+
+			# server_message()
+			if sock == s:
+				# ()
+				# Message from the server -> receive, print
+				msg = s.recv(1024)
+				sys.stdout.write('\r'+msg+'\n')
+				sys.stdout.flush()
+
+			# client_message()
+			elif sock == sys.stdin:
+				# User entered a chat -> send to server
+				msg = sys.stdin.readline()
+				msg = msg[:-1] #removes final '\n'
+				if msg == '':
+					#ignore
+					continue
+				elif msg == 'q':
+					#disconnect and terminate
+					goodbye(s, 'Quiting...')
+				else:
+					#send_message()
+					msg = name + ": " + msg
+					s.send(msg)
+
+		""" TODO: IMPROVE
+		#in_error()
+		for sock in in_error:
+			
+			#server fail:
+			if sock == s:
+				print "[!]", color.FAIL+"Disconnected from server."+color.ENDC
+				sock.close()
+				quit()
+		"""
+
+		#prompt()
+		sys.stdout.write(name + "> ")
+		sys.stdout.flush()
+
+
+
 
 
 # Program
 def main():
 	welcome()
-	# host, port = enter_host_port()
-	# s = connect(host, port)
-	s = connect()
-	s.close()
-	quit()
+	s = auto_connect()
+	loop(s)
+	goodbye(s, "[*] Program terminated.")
 
 
 if __name__ == "__main__":

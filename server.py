@@ -4,6 +4,7 @@
 import socket
 import color
 import os
+import select
 
 """
 host = ''	# Symbolic name meaning all available interfaces
@@ -72,17 +73,45 @@ def listening(s):
 	print "[!] Listening (max " + str(i) + ")..."
 """
 
-
+EXIT_CODE = '/quitting'
 # Main loop
 def loop(s):
 	hosts = []
+	SOCKET_LIST = [s]
 	while True:
-		addr, data = s.accept()
+		#select until socket modified
+		ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [])
 		
-		if addr not in hosts:
-			print "[+] Connected", data
-			hosts.append(addr)
+		# ready_to_read()
+		for sock in ready_to_read:
+			if sock == s:
+				# new_connection()
+				sockfd, addr = s.accept()
+				SOCKET_LIST.append(sockfd)
+				print "[+]", color.WARNING + "Connection", addr, color.ENDC
+				#print '[>] DEBUG SOCKET_LIST', SOCKET_LIST
+			else:
+				# new_message()
+				# Client message -> receive and broadcast (to all except server socket and sender socket).
+				msg = sock.recv(1024)
+				if msg != '':
+					if msg == EXIT_CODE:
+						# disconnection()
+						print "[-]", color.WARNING + "Disconnection." + color.ENDC
+						SOCKET_LIST.remove(sock)
+						continue
+					else:
+						# broadcast()
+						for host in SOCKET_LIST:
+							if host != sock and host != s:
+								#print "[>] DEBUG Sending '" +msg+ "' to ", host
+								host.send(msg)
 
+		# in_error()
+		for sock in in_error:
+			SOCKET_LIST.remove(sock)
+			print "[!]", color.FAIL + "Socket in error.", sock, color.ENDC
+			
 
 # Creates socket, connects to known hosts, and listen 5.
 def start():

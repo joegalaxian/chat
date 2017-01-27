@@ -5,15 +5,16 @@ import os
 import color
 import select
 
+LISTEN_MAX	= 10
 KNOWN_HOSTS	= [('atuin.optus.com.au',4747), ('10.123.0.94',4747)]
 LOCAL_HOST	= [('127.0.0.1',4747), ('localhost',4747)]
 EXIT_CODE	= '/quitting'
 
-# Network IP constructor (192.168.1.1/192.168.255.255).
+# Network IP constructor (192.168.1.1:4747/192.168.255.255:4747).
 def network():
 	for i in range(256):
 		for j in range(256):
-			yield '192.168.%d.%d' % (i,j)
+			yield ('192.168.%d.%d' % (i,j), 4747)
 
 # Prints program tittle:
 def welcome():
@@ -47,8 +48,8 @@ def connect(host_list):
 			# print "[>] DEBUG Connecting to...", h
 			s.bind(h)
 			print "[!]", color.OKGREEN + "Started at " + str(h) + color.ENDC
-			s.listen(5)
-			print "[*] Listening... (max 5)"
+			s.listen(LISTEN_MAX)
+			print "[*] Listening... (max %d)" % LISTEN_MAX
 			return s
 		except Exception as e:
 			# print "[>] DEBUG " + str(e)
@@ -85,12 +86,12 @@ def loop(s):
 						print "[-]", color.WARNING+"Disconnection.", sock.getpeername(), color.ENDC
 						SOCKET_LIST.remove(sock)
 						continue
-				# broadcast()
-				else:
-					for host in SOCKET_LIST:
-						if host != sock and host != s:
-							#print "[>] DEBUG Sending '" +msg+ "' to ", host
-							host.send(msg)
+					# broadcast()
+					else:
+						for host in SOCKET_LIST:
+							if host != sock and host != s:
+								#print "[>] DEBUG Sending '" +msg+ "' to ", host
+								host.send(msg)
 		# in_error()
 		for sock in in_error:
 			SOCKET_LIST.remove(sock)
@@ -138,9 +139,9 @@ def main():
 	welcome()
 	# host, port = enter_host_port()
 	# s = get_socket(host,port)
-	s = start()
-	loop(s)
-	goodbye(s)
+	server_socket = start()
+	loop(server_socket)
+	goodbye(server_socket)
 
 if __name__ == "__main__":
 	main()

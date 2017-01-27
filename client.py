@@ -6,9 +6,10 @@ import os
 import color
 import sys
 import select
+from time import sleep
 
-KNOWN_HOSTS	= [('atuin.optus.com.au',4747), ('10.123.0.94',4747)]
-LOCAL_HOST	= [('127.0.0.1',4747), ('localhost',4747)]
+KNOWN_HOSTS	= [('atuin.optus.com.au'), ('10.123.0.94')]
+LOCAL_HOST	= [('127.0.0.1'), ('localhost')]
 EXIT_CODE	= '/quitting'
 
 # Network IP constructor (192.168.1.1/192.168.255.255).
@@ -31,6 +32,13 @@ data = s.recv(1024)
 s.close()
 print 'Received', repr(data)
 """
+
+# XOR cypher, used for code and decode messages.
+def xor(data, key):
+	if key == '': return data
+	if len(data) > len(key):
+		key = key * (len(data)/len(key) + len(data) % len(key))
+	return bytearray(a^b for a,b in zip(*map(bytearray, [data,key])))
 
 # Prints tittle
 def welcome():
@@ -82,7 +90,7 @@ def auto_connect(host=None, port=None):
 	for h in KNOWN_HOSTS:
 		try:
 			# print "[i] DEBUG Connecting...", h
-			s.connect(h)
+			s.connect((h, 4747))
 			print "[!]", color.OKGREEN + "Connected", h, color.ENDC
 			return s
 		except Exception as e:
@@ -96,36 +104,41 @@ def auto_connect(host=None, port=None):
 	return manual_connect()
 #else: return connect(host, port)
 
+"""
 # Creates socket, connect, and listen 5.
 def start():
 	try:
 		print "[*] Starting..."
+		# print "[>] DEBUG:", KNOWN_HOSTS + LOCAL_HOST
 		s = connect(KNOWN_HOSTS + list(network()) + LOCAL_HOST)
+		#s = connect(KNOWN_HOSTS + LOCAL_HOST)
 		return s
 	except Exception as e:
 		goodbye(None, "[!]" + color.FAIL + " Error: " + str(e) + color.ENDC)
 
 # Creates, connects, listen and return socket if successfull, or None if unsuccessfull.
 def connect(host_list):
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	for h in host_list:
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		try:
-			# print "[>] DEBUG Connecting to...", h
+			print "[>] DEBUG Connecting to...", h
 			s.connect((h,4747))
-			print "[!]", color.OKGREEN + "Started at " + str(h) + color.ENDC
+			#print "[!]", color.OKGREEN + "Started at " + str(h) + color.ENDC
 			s.listen(5)
 			print "[*] Listening... (max 5)"
 			return s
 		except Exception as e:
-			print "[>] DEBUG " + str(e)
+			#print "[>] DEBUG " + str(e)
 			pass
 	raise Exception("Couldn't connect.")
+"""
 
 # loop
 def loop(s):
 	SOCKET_LIST = [s, sys.stdin]
 	name = raw_input("[*] Name: ")
+	key = raw_input("[*] Key: ")
 	#prompt()
 	sys.stdout.write(name + "> ")
 	sys.stdout.flush()
@@ -142,8 +155,16 @@ def loop(s):
 				if not msg:
 					goodbye(s, "\n[!] "+color.FAIL+"Disconnected from server."+color.ENDC)
 				#print_message()
-				sys.stdout.write('\r'+msg+'\n')
+				#print "[>] DEBUG msg received: %s" % msg
+				#print "[>] DEBUG msg decoded: %s" % xor(msg, key)
+				#sys.stdout.write('\r'+msg+'\n')			#non-encrypted
+
+				sys.stdout.write('\n\r'+msg)			#non-encrypted
 				sys.stdout.flush()
+				sleep(0.5)
+				sys.stdout.write('\r'+xor(msg, key)+'\n')	#encrypted
+				sys.stdout.flush()
+
 			# client_message()
 			elif sock == sys.stdin:
 				# User entered a chat -> send to server
@@ -157,8 +178,14 @@ def loop(s):
 					goodbye(s, "[!] Program terminated.")
 				else:
 					#send_message()
+					#print "[>] DEBUG", msg
 					msg = name + ": " + msg
-					s.send(msg)
+					#s.send(msg)
+					#print "[>] DEBUG msg:", msg
+					#print "[>] DEBUG key:", key
+					xmsg = xor(msg, key)
+					#print "[>] DEBUG", xmsg
+					s.send("%s" % xmsg)
 
 		""" TODO: IMPROVE
 		#in_error()
